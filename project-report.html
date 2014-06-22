@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta http-equiv="x-ua-compatible" content="IE=9" >
+
+<title>Practical Machine Learning course project</title>
+
+<style type="text/css">
+body, td {
+   font-family: sans-serif;
+   background-color: white;
+   font-size: 12px;
+   margin: 8px;
+}
+
+tt, code, pre {
+   font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+
+h1 { 
+   font-size:2.2em; 
+}
+
+h2 { 
+   font-size:1.8em; 
+}
+
+h3 { 
+   font-size:1.4em; 
+}
+
+h4 { 
+   font-size:1.0em; 
+}
+
+h5 { 
+   font-size:0.9em; 
+}
+
+h6 { 
+   font-size:0.8em; 
+}
+
+a:visited {
+   color: rgb(50%, 0%, 50%);
+}
+
+pre {	
+   margin-top: 0;
+   max-width: 95%;
+   border: 1px solid #ccc;
+   white-space: pre-wrap;
+}
+
+pre code {
+   display: block; padding: 0.5em;
+}
+
+code.r, code.cpp {
+   background-color: #F8F8F8;
+}
+
+table, td, th {
+  border: none;
+}
+
+blockquote {
+   color:#666666;
+   margin:0;
+   padding-left: 1em;
+   border-left: 0.5em #EEE solid;
+}
+
+hr {
+   height: 0px;
+   border-bottom: none;
+   border-top-width: thin;
+   border-top-style: dotted;
+   border-top-color: #999999;
+}
+
+@media print {
+   * { 
+      background: transparent !important; 
+      color: black !important; 
+      filter:none !important; 
+      -ms-filter: none !important; 
+   }
+
+   body { 
+      font-size:12pt; 
+      max-width:100%; 
+   }
+       
+   a, a:visited { 
+      text-decoration: underline; 
+   }
+
+   hr { 
+      visibility: hidden;
+      page-break-before: always;
+   }
+
+   pre, blockquote { 
+      padding-right: 1em; 
+      page-break-inside: avoid; 
+   }
+
+   tr, img { 
+      page-break-inside: avoid; 
+   }
+
+   img { 
+      max-width: 100% !important; 
+   }
+
+   @page :left { 
+      margin: 15mm 20mm 15mm 10mm; 
+   }
+     
+   @page :right { 
+      margin: 15mm 10mm 15mm 20mm; 
+   }
+
+   p, h2, h3 { 
+      orphans: 3; widows: 3; 
+   }
+
+   h2, h3 { 
+      page-break-after: avoid; 
+   }
+}
+
+</style>
+
+
+
+<!-- MathJax scripts -->
+<script type="text/javascript" src="https://c328740.ssl.cf1.rackcdn.com/mathjax/2.0-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+
+</head>
+
+<body>
+<h1>Practical Machine Learning course project</h1>
+
+<h2>Jakub Tomaszewski</h2>
+
+<p><strong>2014-06-21</strong></p>
+
+<p>In this document I present the approach I followed to accomplish the final course project. The main goal was to create, validate and choose possibly the best predictive model solving the task of class separation in the given dataset.</p>
+
+<h2>Initial data preparation</h2>
+
+<p>After creating the project in RStudio and downloading training and test dataset, I used the following code to read these datasets:</p>
+
+<pre><code>pml &lt;- read.csv(&quot;pml-training.csv&quot;)
+test &lt;- read.csv(&quot;pml-testing.csv&quot;)
+</code></pre>
+
+<p><em>caret</em> package was used to fit a collection of machine learning algorithms and to assess their goodness.</p>
+
+<p><em>Hmisc::describe</em> function allowed me to get sense of the data and to find out that some attributes have a lot of missing values.</p>
+
+<p>As it appears after using the <em>caret::nearZeroVar</em> function, variability of these attributes was too small to be useful in explaining the differences between classes. These attributes were excluded from the group of the possible predictors in the models created later. Furthermore, I removed the attributes containing missing values in the test set.</p>
+
+<pre><code>library(caret)
+library(Hmisc)
+which_empty &lt;- names(which(apply(test,2,function(x) any(is.na(x)))))
+column_selection &lt;- intersect(colnames(pml)[which(nearZeroVar(pml, saveMetrics=TRUE)$nzv==FALSE)],colnames(test))
+column_selection &lt;- setdiff(column_selection,c(&quot;X&quot;,&quot;user_name&quot;,which_empty))
+pml &lt;- pml[,union(column_selection,&quot;classe&quot;)]
+test &lt;- test[,column_selection]
+</code></pre>
+
+<p>The next step was to create a partition of the <em>pml-training</em> dataset into 3 disjoint parts:</p>
+
+<ul>
+<li>training set (50% of obs.) to train the models,</li>
+<li>validation set (25% of obs.) to tune the parameters of fitted models,</li>
+<li>testing set (25% of obs.) to assess the goodness of fit of these models.</li>
+</ul>
+
+<pre><code>set.seed(87)
+n &lt;- nrow(pml)
+training_indices &lt;- sample(1:n,0.5*n)
+validation_indices &lt;- sample(setdiff(1:n,training_indices),0.25*n)
+testing_indices &lt;- setdiff(1:n,union(training_indices,validation_indices))
+training &lt;- pml[training_indices,]
+validation &lt;- pml[validation_indices,]
+testing &lt;- pml[testing_indices,]
+</code></pre>
+
+<h2>Modelling</h2>
+
+<p>Having the data ready for modelling, I created 3 models with default tuning parameters:</p>
+
+<ul>
+<li>CART tree</li>
+<li>Linear Discriminant Analysis classifier</li>
+<li>Random forest</li>
+</ul>
+
+<pre><code>CV_control &lt;- trainControl(
+                method = &quot;repeatedcv&quot;,
+                number = 10,
+                repeats = 5)
+
+model1 &lt;- train(classe~.,method=&quot;rpart&quot;,data=training,trControl=CV_control)
+model2 &lt;- train(classe~.,method=&quot;lda&quot;,data=training,trControl=CV_control)
+model3 &lt;- train(classe~.,method=&quot;rf&quot;,data=training,trControl=CV_control)
+</code></pre>
+
+<p>When the estimates and partition rules were calculated, predictions were made and evaluated on the independent validation set:</p>
+
+<pre><code>pred1 &lt;- predict(model1,newdata=validation)
+pred2 &lt;- predict(model2,newdata=validation)
+pred3 &lt;- predict(model3,newdata=validation)
+confusionMatrix(pred1,validation[complete.cases(validation),&quot;classe&quot;])
+confusionMatrix(pred2,validation[complete.cases(validation),&quot;classe&quot;])
+confusionMatrix(pred3,validation[complete.cases(validation),&quot;classe&quot;])
+</code></pre>
+
+<p>It was surprising that even without tuning parameters and further ensembling of the models, cross-validation accuracy of predictions made by random forest model was almost 99%! </p>
+
+<p>In case of LDA and CART models, accuracy was significantly worse, respectively: \( 84.83\% \) and \( 53.52\% \). Depending on the seed chosen before partitioning the initial dataset, out of sample error for LDA and random forest varies between \( 0\%-1\% \). Default parameters of these models were not changed for obtaining the further improvement of their accuracy, so in this case validation dataset played a role of the testing dataset. </p>
+
+<h2>Dear Reader!</h2>
+
+<p>Thank you for your effort reading this report. I will be grateful to receive your advices on improvement of my modelling approach! I hope you had as much fun as I did participating in this course. :)</p>
+
+</body>
+
+</html>
+
