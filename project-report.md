@@ -76,9 +76,9 @@ confusionMatrix(pred2,validation[complete.cases(validation),"classe"])
 confusionMatrix(pred3,validation[complete.cases(validation),"classe"])
 ```
 
-It was surprising that even without tuning parameters and further ensembling of the models, cross-validation accuracy of predictions made by random forest model was almost 99%! 
+It was surprising that even without tuning parameters and further ensembling of the models, cross-validation accuracy of predictions made by random forest model was almost $99\%$! 
 
-In case of LDA and CART models, accuracy was significantly worse, respectively: $84.83\%$ and $53.52\%$. Depending on the seed chosen before partitioning the initial dataset, out of sample error for LDA and random forest varies between $0\%-1\%$. Default parameters of these models were not changed for obtaining the further improvement of their accuracy, so in this case validation dataset played a role of the testing dataset. 
+In case of LDA and CART models, accuracy was significantly worse, respectively: $84.83\%$ and $53.52\%$. Depending on the seed chosen before partitioning the initial dataset, out of sample error for LDA and random forest varies between $0\%-1\%$. Default parameters of these models were not changed for obtaining the further improvement of their accuracy (because there was no need to improve the classifier performance), so in this case validation dataset played a role of the testing dataset. Finally, random forest model appeared to be the most accurate of all evaluated models.
 
 Dear Reader!
 --------------------------------------------------------
